@@ -16,6 +16,12 @@
     '2160p60': { width: 3840, height: 2160, fps: 60, mbps: 35 },
   };
   const AUDIO_BITRATE = 160000;
+  // Tope de fps de captura y encoder, independiente del preset. Con el tope
+  // en 30, una película a 24 fps llegaba a ~18: la captura entrega los cuadros
+  // con jitter (a veces 36 ms entre uno y otro) y el limitador de WebRTC tira
+  // los que llegan antes de 33 ms. Con margen no descarta nada; si la fuente
+  // es de 24 se mandan 24, no 60.
+  const MAX_FPS = 60;
 
   const RETRY_BASE_MS = 1000;
   const RETRY_MAX_MS = 10000;
@@ -182,7 +188,7 @@
     if (v) {
       v.contentHint = el.content.value;
       v.applyConstraints({
-        width: { max: p.width }, height: { max: p.height }, frameRate: { ideal: p.fps, max: p.fps },
+        width: { max: p.width }, height: { max: p.height }, frameRate: { max: MAX_FPS },
       }).catch(() => {});
     }
     if (session && session.videoSender) await tuneSender(session.videoSender);
@@ -193,7 +199,7 @@
       const params = sender.getParameters();
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];
       params.encodings[0].maxBitrate = bitrateBps();
-      params.encodings[0].maxFramerate = preset().fps;
+      params.encodings[0].maxFramerate = MAX_FPS;
       // Película: bajar resolución antes que fps. Texto: al revés.
       params.degradationPreference = el.content.value === 'detail' ? 'maintain-resolution' : 'maintain-framerate';
       await sender.setParameters(params);
@@ -209,7 +215,7 @@
     let next;
     try {
       next = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: { max: p.width }, height: { max: p.height }, frameRate: { ideal: p.fps, max: p.fps } },
+        video: { width: { max: p.width }, height: { max: p.height }, frameRate: { max: MAX_FPS } },
         audio: el.audio.checked
           ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 }
           : false,
@@ -431,7 +437,7 @@
     const vt = pc.addTransceiver(v, {
       direction: 'sendonly',
       streams: [media],
-      sendEncodings: [{ maxBitrate: bitrateBps(), maxFramerate: preset().fps }],
+      sendEncodings: [{ maxBitrate: bitrateBps(), maxFramerate: MAX_FPS }],
     });
     const prefs = videoCodecPreferences();
     if (!prefs) {
