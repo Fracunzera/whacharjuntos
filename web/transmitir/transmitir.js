@@ -524,9 +524,13 @@
     let remote = null;
     let pair = null;
     let selectedPairId = null;
+    // Lo que entrega la captura de pantalla, antes del encoder: si esto ya
+    // viene bajo, el problema no es la red sino la captura.
+    let source = null;
 
     report.forEach((r) => {
       if (r.type === 'outbound-rtp' && r.kind === 'video') video = r;
+      else if (r.type === 'media-source' && r.kind === 'video') source = r;
       else if (r.type === 'outbound-rtp' && r.kind === 'audio') audio = r;
       else if (r.type === 'remote-inbound-rtp' && r.kind === 'video') remote = r;
       else if (r.type === 'transport' && r.selectedCandidatePairId) selectedPairId = r.selectedCandidatePairId;
@@ -561,6 +565,7 @@
         bitrate: fmtBitrate(vRate),
         resolution: video && video.frameWidth ? `${video.frameWidth}×${video.frameHeight}` : '—',
         fps: video && video.framesPerSecond != null ? String(Math.round(video.framesPerSecond)) : '—',
+        srcFps: source && source.framesPerSecond != null ? String(Math.round(source.framesPerSecond)) : '—',
         limit: video && video.qualityLimitationReason ? reasons[video.qualityLimitationReason] || video.qualityLimitationReason : '—',
         rtt: rttSec != null ? `${Math.round(rttSec * 1000)} ms` : '—',
         loss: remote && remote.fractionLost != null ? `${(remote.fractionLost * 100).toFixed(1)} %` : '—',
