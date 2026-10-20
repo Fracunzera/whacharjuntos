@@ -319,10 +319,16 @@
     return sdp.replace(m[0], `${m[0]}\r\na=fmtp:${pt} ${extra.join(';')}`);
   }
 
-  // Chrome arranca el estimador de ancho de banda en ~300 kbps y tarda en
-  // subir. Le indicamos un punto de partida más cercano al objetivo.
+  // Chrome arranca el estimador de ancho de banda en ~300 kbps y sube muy
+  // despacio, peor con RTT alto (Argentina -> VPS en Europa ~270 ms): se queda
+  // en 1-2 Mbps aunque la subida dé para más. Le damos un punto de partida
+  // cerca del objetivo y un piso del 50 %: el bitrate elegido tiene que estar
+  // por debajo de la subida real, si no se traba en vez de bajar calidad.
+  // Solo se lee al negociar: cambiar el bitrate en vivo no mueve el piso.
   function videoStartBitrate(sdp) {
-    const kbps = Math.round(Math.min(bitrateBps(), 8e6) / 2 / 1000);
+    const target = Math.min(bitrateBps(), 35e6);
+    const start = Math.round(target * 0.8 / 1000);
+    const min = Math.round(target * 0.5 / 1000);
     const lines = sdp.split('\r\n');
     const pts = new Set();
     for (const line of lines) {
@@ -332,7 +338,7 @@
     return lines.map((line) => {
       const m = line.match(/^a=fmtp:(\d+) (.*)$/);
       if (!m || !pts.has(m[1]) || /x-google-start-bitrate/.test(line)) return line;
-      return `${line};x-google-start-bitrate=${kbps}`;
+      return `${line};x-google-start-bitrate=${start};x-google-min-bitrate=${min}`;
     }).join('\r\n');
   }
 
