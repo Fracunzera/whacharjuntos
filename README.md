@@ -39,6 +39,8 @@ navegador).
 |---|---|
 | `docker-compose.yml` | Servicios `mediamtx` y `caddy`, red interna con subred fija. |
 | `docker-compose.rtmp.yml` | Override opcional para el fallback RTMP (1935). |
+| `docker-compose.nginx.yml` | Override para usar el nginx del host en vez de Caddy. |
+| `deploy/nginx-whacharjuntos.conf` | vhost de nginx equivalente al `Caddyfile`. |
 | `mediamtx.yml` | Config de MediaMTX (claves verificadas contra el `mediamtx.yml` de referencia de v1.21.2). |
 | `Caddyfile` | TLS automático, ruteo de WHIP/WHEP/HLS y headers de seguridad. |
 | `web/` | El viewer (`index.html`, `style.css`, `app.js`), con pantalla de login. |
@@ -169,6 +171,33 @@ caracteres). Pueden entrar antes de que arranques: el viewer muestra
 `https://watchando.blucaro.site/?r=<sala>&t=<VIEWER_TOKEN>`. Es más cómodo
 pero cualquiera que tenga el link entra (se puede reenviar), y revocarlo corta
 a todos. El viewer saca el token de la barra de direcciones apenas lo lee.
+
+---
+
+## Si el VPS ya tiene nginx en 80/443
+
+Caddy necesita 80/443. Si en el host ya hay un nginx sirviendo otros sitios,
+no hace falta Caddy:
+
+1. En `.env`: `COMPOSE_FILE=docker-compose.yml:docker-compose.nginx.yml`.
+   Esto apaga Caddy y publica 8888/8889 de MediaMTX **solo en 127.0.0.1**.
+   (`ACME_EMAIL` igual tiene que tener algún valor, no se usa.)
+2. `docker compose up -d`
+3. Instalar el vhost (`deploy/nginx-whacharjuntos.conf`, equivalente al
+   Caddyfile: mismos headers y ruteo), ajustando `server_name` y `root`:
+
+   ```sh
+   cp deploy/nginx-whacharjuntos.conf /etc/nginx/sites-available/whacharjuntos
+   ln -s ../sites-available/whacharjuntos /etc/nginx/sites-enabled/
+   nginx -t && systemctl reload nginx
+   certbot --nginx -d watchando.blucaro.site --redirect
+   ```
+
+4. Abrir **solo `8189/udp`** (80/443 TCP ya los tiene nginx).
+
+Con nginx, el proxy confiable que ve MediaMTX es el gateway de la red
+`edge` (`172.30.80.1`), que está dentro de `EDGE_SUBNET`: no hay que tocar
+nada más.
 
 ---
 

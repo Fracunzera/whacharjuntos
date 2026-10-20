@@ -5,6 +5,20 @@ services:
     # Versión pineada. Imagen "standard" (sin ffmpeg): no transcodificamos nada.
     image: bluenviron/mediamtx:1.21.2
     restart: unless-stopped
+    # Que un abuso (o un bug) no se coma el VPS: tope de RAM/CPU/procesos,
+    # sin capabilities ni escalada de privilegios, rootfs de solo lectura
+    # (no graba nada) y logs rotados (cada login fallido loguea 2 líneas).
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 256
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
     # Logins de tus amigos (usuarios de solo lectura), generado por
