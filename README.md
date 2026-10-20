@@ -1,7 +1,8 @@
 # whacharjuntos
 
-Servidor self-hosted para "ver cosas juntos": vos transmitís tu pantalla desde
-OBS y 3-5 amigos la ven en el navegador abriendo un link. Solo video + audio del
+Servidor self-hosted para "ver cosas juntos": vos transmitís tu pantalla
+**desde el navegador** (`/transmitir`) **o desde OBS**, y 3-5 amigos la ven en
+el navegador abriendo un link y entrando con su usuario. Solo video + audio del
 stream; la voz y la cámara van por Discord. El viewer es de **solo lectura**:
 nunca pide micrófono ni cámara (y la `Permissions-Policy` se lo prohíbe al
 navegador).
@@ -41,6 +42,7 @@ navegador).
 | `mediamtx.yml` | Config de MediaMTX (claves verificadas contra el `mediamtx.yml` de referencia de v1.21.2). |
 | `Caddyfile` | TLS automático, ruteo de WHIP/WHEP/HLS y headers de seguridad. |
 | `web/` | El viewer (`index.html`, `style.css`, `app.js`), con pantalla de login. |
+| `web/transmitir/` | Página para transmitir desde el navegador, sin OBS (solo para vos). |
 | `scripts/amigos.sh` | Alta/baja de los logins de tus amigos. |
 | `viewers.env` | Lo genera `amigos.sh` (contraseñas hasheadas). **No se commitea.** |
 | `.env.example` | Todas las variables. Copialo a `.env`. |
@@ -133,7 +135,7 @@ Tenés que ver en los logs de MediaMTX:
 
 y en Caddy que obtuvo el certificado para `watchando.blucaro.site`.
 
-### 6. Probar sin OBS
+### 6. Probar con curl
 
 ```sh
 # Login correcto, todavía sin transmisión -> 404
@@ -241,6 +243,50 @@ nc -vzu <IP_DEL_VPS> 8189     # UDP: "succeeded"/"open" no garantiza nada, pero 
 La prueba real es: abrir el viewer con OBS transmitiendo y ver "EN VIVO".
 
 ---
+
+## Transmitir desde el navegador (sin OBS)
+
+Abrí **`https://watchando.blucaro.site/transmitir`** en Chrome, Edge o Firefox
+de escritorio:
+
+1. Completá **Sala** (ej. `peli`), **Usuario publisher** y **Contraseña
+   publisher** (`PUBLISH_USER` / `PUBLISH_PASS` del `.env`). Con "Recordar"
+   no los vuelve a pedir en esa compu.
+2. Elegí **calidad** (de 720p30 a 4K60; el bitrate se completa solo con los
+   valores de la tabla de OBS de abajo, y lo podés cambiar) y **contenido**:
+   *Película/juego* prioriza fluidez, *Texto/código* prioriza nitidez.
+3. Tocá **Elegir pantalla** (o directamente **Iniciar transmisión**) y elegí
+   qué compartir en el selector del navegador.
+4. **Iniciar transmisión.** El estado pasa a "en vivo" y abajo aparece el
+   link para tus amigos con un botón de copiar.
+5. **Detener transmisión** cuando terminás (o "Dejar de compartir" en la
+   barra del navegador: también corta la transmisión).
+
+Detalles:
+
+- **Audio:** lo más prolijo es compartir una **pestaña** y marcar
+  *"Compartir audio de la pestaña"* (Netflix en otra pestaña, YouTube, etc.).
+  En Windows también podés compartir la pantalla entera con *"Compartir audio
+  del sistema"*, pero ojo: **ahí también se transmite Discord** y tus amigos
+  se escuchan con eco. Firefox no comparte audio. Se manda en Opus estéreo a
+  160 kbps.
+- **Nunca** pide micrófono ni cámara (la voz va por Discord). La captura de
+  pantalla solo está permitida en `/transmitir`; en el viewer de tus amigos el
+  navegador la tiene bloqueada por `Permissions-Policy`.
+- **Cambiar en vivo:** "Cambiar pantalla" cambia la fuente sin cortar a
+  nadie; calidad, bitrate y tipo de contenido también se aplican en vivo.
+- **Codec:** H.264 (el mismo que con OBS). Si el navegador no codifica
+  H.264, usa VP9, que también funciona por WebRTC y LL-HLS en navegadores
+  actuales. Las stats del panel muestran el codec, bitrate, resolución y fps
+  reales, y si la calidad está **limitada por CPU o por ancho de banda**.
+- MediaMTX le pide un keyframe al navegador cada 2 s, así que los amigos que
+  entran tarde ven imagen enseguida y LL-HLS funciona sin configurar nada.
+- **Dejá la pestaña abierta** mientras transmitís (si la cerrás, te avisa).
+  Si se corta la conexión, reintenta sola.
+- **OBS sigue siendo mejor** si querés escenas, mezclar audios, capturar
+  juegos en pantalla completa o 4K60 sostenido: el encoder de OBS (NVENC/x264)
+  rinde más que el del navegador. Las dos formas publican igual (WHIP) y usan
+  las mismas salas: tus amigos no notan la diferencia.
 
 ## Configuración de OBS
 

@@ -6,13 +6,18 @@
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
-		# El token viaja en la URL de la página: que no se filtre por Referer.
+		# Si se usa el link ?t=, que el token no se filtre por Referer.
 		Referrer-Policy "no-referrer"
-		# El viewer es de solo lectura: el navegador ni siquiera puede pedir
-		# micrófono, cámara ni captura de pantalla desde este origen.
-		Permissions-Policy "camera=(), microphone=(), display-capture=(), geolocation=()"
 		-Server
 	}
+
+	# Micrófono y cámara bloqueados en todo el sitio. Captura de pantalla
+	# solo en /transmitir (la página del host); el viewer de tus amigos es de
+	# solo lectura y el navegador ni siquiera puede pedirla ahí.
+	@studio path /transmitir /transmitir/*
+	header @studio Permissions-Policy "camera=(), microphone=(), display-capture=(self), geolocation=()"
+	@notStudio not path /transmitir /transmitir/*
+	header @notStudio Permissions-Policy "camera=(), microphone=(), display-capture=(), geolocation=()"
 
 	# --- Señalización WebRTC -> MediaMTX :8889 ---------------------------------
 	# POST   /<sala>/whip            (OBS publica)
