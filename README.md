@@ -314,10 +314,16 @@ Detalles:
   entran tarde ven imagen enseguida y LL-HLS funciona sin configurar nada.
 - **Dejá la pestaña abierta** mientras transmitís (si la cerrás, te avisa).
   Si se corta la conexión, reintenta sola.
-- **OBS sigue siendo mejor** si querés escenas, mezclar audios, capturar
-  juegos en pantalla completa o 4K60 sostenido: el encoder de OBS (NVENC/x264)
-  rinde más que el del navegador. Las dos formas publican igual (WHIP) y usan
-  las mismas salas: tus amigos no notan la diferencia.
+- **Para películas y juegos, usá OBS.** Medido desde el server: compartiendo
+  una pestaña de Chrome, una película de 24 fps llegaba a ~18 fps con
+  cualquier encoder (OpenH264, el de la placa de video o VP9), porque los
+  cuadros se pierden en la captura de pestaña. Además MediaMTX solo negocia
+  H.264 **Baseline** por WHIP (el navegador lo respeta; OBS manda High igual) y,
+  con mucha latencia hasta el VPS, el control de congestión de Chrome sube el
+  bitrate muy despacio. Con OBS llegó perfecto: 60 fps exactos, High, CBR.
+  `/transmitir` queda para compartir algo rápido (una página, código) donde
+  la fluidez no importa. Las dos formas publican igual (WHIP) y usan las
+  mismas salas.
 
 ## Configuración de OBS
 
@@ -344,8 +350,9 @@ lo que manda OBS con el campo "Bearer Token".
 | Intervalo de fotogramas clave | **1 s** |
 | Perfil | `high` |
 | B-frames | **0** (WebRTC no los soporta bien; OBS los apaga en WHIP, pero verificalo) |
-| Look-ahead / Psycho visual tuning (NVENC) | Off |
-| x264: preset / tune | `veryfast` (o lo que aguante tu CPU) / `zerolatency`; opciones x264: `bframes=0` |
+| NVENC: Preajuste / Ajuste / Modo multipaso | `P5: Lento (buena calidad)` / **Latencia baja** / **Pase único** |
+| NVENC: Mirar hacia adelante (look-ahead) / Cuantización adaptativa (psycho visual tuning) | **Off**: el look-ahead espera ~8 cuadros antes de codificar, y la cuantización adaptativa hace variar mucho el tamaño de los cuadros (el viewer agranda su buffer) |
+| x264: preset / tune | `veryfast` (o lo que aguante tu CPU) / **`zerolatency`** (sin esto x264 suma del orden de 0,3-0,5 s de delay); opciones x264: `bframes=0`. Si tenés placa de video, mejor NVENC/AMD/QuickSync. |
 
 - **Audio:** WHIP usa **Opus** automáticamente. Bitrate de la pista 1:
   **160 kbps** (Ajustes → Salida → Audio). Frecuencia 48 kHz (Ajustes → Audio).
@@ -354,7 +361,20 @@ lo que manda OBS con el campo "Bearer Token".
   LL-HLS necesita un keyframe por segmento (segmentos de 1 s). Con 2 s también
   funciona: un poco más de calidad por bit y un poco más de espera al entrar.
 - **FPS constantes** (Ajustes → Video): LL-HLS en iPhone/Safari se queja si la
-  duración de las partes varía.
+  duración de las partes varía. **Para películas (24 fps) usá 60**: a 30 queda
+  un cuadro repetido cada 5 (se nota un tironcito); a 60 es el mismo patrón
+  2-3 que en cualquier monitor de 60 Hz. Los repetidos casi no ocupan bitrate.
+- **Audio sin Discord:** fuente *Captura de audio de aplicación* → el
+  navegador o reproductor de la película, y en Ajustes → Audio poné *Audio
+  del escritorio* y *Mic/Aux* en *Deshabilitado*.
+- **Delay:** lo normal es la latencia de red ida y vuelta al VPS más
+  ~0,2 s (ej.: VPS en Europa y gente en Argentina ≈ 0,5 s de punta a punta).
+  Si notás bastante más, buscá `audio buffering` en el log de OBS (Ayuda →
+  Archivos de registro): la captura de audio de aplicación puede agrandar el
+  búfer de audio y OBS retrasa el video lo mismo. Se arregla con Ajustes →
+  Avanzado → *Modo de búfer de audio de baja latencia*. Para ir sincronizado
+  con tus amigos, mirá tu propio stream en el viewer, en un navegador
+  distinto del que captura OBS (si no, mandás el audio del viewer y hay eco).
 
 ### Bitrate recomendado (H.264, CBR)
 
