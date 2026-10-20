@@ -44,6 +44,8 @@ services:
       # adentro y afuera: es el que MediaMTX anuncia en los candidatos ICE.
       # 8888 (HLS) y 8889 (WHIP/WHEP) NO se publican: solo los ve Caddy.
       - "8189:8189/udp"
+      # Respaldo ICE-TCP (redes que bloquean UDP). Mismo número adentro y afuera.
+      - "8189:8189/tcp"
     networks:
       - edge
 

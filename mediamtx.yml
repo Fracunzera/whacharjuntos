@@ -102,7 +102,10 @@ webrtcTrustedProxies: ["172.30.80.0/24"]          # MTX_WEBRTCTRUSTEDPROXIES
 # firewall del VPS. Si está cerrado: la señalización anda, el player queda
 # "conectando" para siempre y no hay ningún error visible.
 webrtcLocalUDPAddress: :8189
-webrtcLocalTCPAddress: ""
+# Respaldo ICE-TCP en el mismo número de puerto: si la red de un amigo
+# bloquea UDP, el navegador cae solo a TCP y sigue con WebRTC (más latencia
+# ante pérdida de paquetes que UDP, pero mucho menos que LL-HLS).
+webrtcLocalTCPAddress: :8189
 
 # Dentro de Docker las interfaces tienen IPs privadas (172.x): no sirven como
 # candidatos ICE. Las apagamos y anunciamos solo la IP pública del VPS.

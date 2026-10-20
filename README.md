@@ -193,7 +193,7 @@ no hace falta Caddy:
    certbot --nginx -d watchando.blucaro.site --redirect
    ```
 
-4. Abrir **solo `8189/udp`** (80/443 TCP ya los tiene nginx).
+4. Abrir **`8189/udp`** y **`8189/tcp`** (80/443 TCP ya los tiene nginx).
 
 Con nginx, el proxy confiable que ve MediaMTX es el gateway de la red
 `edge` (`172.30.80.1`), que está dentro de `EDGE_SUBNET`: no hay que tocar
@@ -208,6 +208,7 @@ nada más.
 | 80 | TCP | Let's Encrypt (HTTP-01) + redirect a HTTPS | **Sí** |
 | 443 | TCP | Viewer + señalización WHIP/WHEP + LL-HLS | **Sí** |
 | **8189** | **UDP** | **Media WebRTC (OBS → VPS y VPS → viewers)** | **Sí, obligatorio** |
+| 8189 | TCP | Respaldo ICE-TCP para redes que bloquean UDP | Recomendado |
 | 443 | UDP | HTTP/3 (opcional, mejora un poco el HTTPS) | Opcional |
 | 1935 | TCP | RTMP fallback (solo con `docker-compose.rtmp.yml`) | Solo si lo usás |
 | 8888, 8889 | TCP | HLS / WHIP-WHEP de MediaMTX | **No.** No se publican; solo los ve Caddy por la red interna. |
@@ -251,6 +252,7 @@ sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw allow 443/udp
 sudo ufw allow 8189/udp
+sudo ufw allow 8189/tcp
 # sudo ufw allow 1935/tcp   # solo si usás el fallback RTMP
 ```
 
@@ -446,6 +448,23 @@ RTMP viaja **sin cifrar**, contraseña incluida. Desactivalo cuando no lo uses.
 | Imagen congelada / artefactos con bitrates altos | Pérdida de paquetes UDP. Bajá el bitrate o pasá a LL-HLS. Mirá "paquetes perdidos" en las stats. |
 
 Logs útiles: `LOG_LEVEL=debug` en `.env` y `docker compose up -d`.
+
+### Buffers UDP del kernel
+
+Con bitrates altos, los buffers UDP por defecto de Linux (~208 KB) se llenan
+en las ráfagas (keyframes) y el kernel descarta paquetes: artefactos o imagen
+congelada aunque la red esté bien. En el VPS:
+
+```sh
+sudo tee /etc/sysctl.d/90-whacharjuntos-udp.conf <<'CONF'
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.rmem_default = 1048576
+net.core.wmem_default = 1048576
+CONF
+sudo sysctl --system
+docker compose up -d --force-recreate   # el contenedor toma los valores al crearse
+```
 
 ---
 
