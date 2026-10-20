@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="dark">
+  <title>Transmitir · whacharjuntos</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="transmitir.css">
+  <script src="transmitir.js" defer></script>
+</head>
+<body>
+  <main class="studio">
+    <section class="stage">
+      <video id="preview" playsinline autoplay muted></video>
+      <div id="stage-empty" class="stage-empty">
+        <p class="stage-title">Todavía no elegiste qué compartir</p>
+        <p class="stage-detail">Tocá “Elegir pantalla” y elegí una pestaña, una ventana o la pantalla entera.</p>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <header class="panel-head">
+        <h1>Transmitir</h1>
+        <span id="status" class="status" data-state="idle">sin transmitir</span>
+      </header>
+
+      <p id="unsupported" class="notice notice-error" hidden>
+        Este navegador no permite compartir pantalla. Usá Chrome, Edge o Firefox de escritorio.
+      </p>
+
+      <form id="form" class="panel-form" autocomplete="on">
+        <fieldset class="group">
+          <legend>Acceso</legend>
+          <label class="field">
+            <span>Sala</span>
+            <input id="room" name="room" required maxlength="64" autocapitalize="none" spellcheck="false"
+                   pattern="[A-Za-z0-9_\-]{1,64}" placeholder="peli">
+          </label>
+          <label class="field">
+            <span>Usuario publisher</span>
+            <input id="user" name="username" required autocomplete="username" autocapitalize="none" spellcheck="false">
+          </label>
+          <label class="field">
+            <span>Contraseña publisher</span>
+            <input id="pass" name="password" type="password" required autocomplete="current-password">
+          </label>
+          <label class="remember">
+            <input id="remember" type="checkbox" checked>
+            <span>Recordar en este dispositivo</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>Calidad</legend>
+          <label class="field">
+            <span>Resolución y fps</span>
+            <select id="preset">
+              <option value="720p30">720p · 30 fps</option>
+              <option value="1080p30" selected>1080p · 30 fps</option>
+              <option value="1080p60">1080p · 60 fps</option>
+              <option value="1440p60">1440p · 60 fps</option>
+              <option value="2160p30">4K · 30 fps</option>
+              <option value="2160p60">4K · 60 fps</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Bitrate máximo (Mbps)</span>
+            <input id="bitrate" type="number" min="0.5" max="80" step="0.5" value="6" required>
+          </label>
+          <label class="field">
+            <span>Contenido</span>
+            <select id="content">
+              <option value="motion" selected>Película / serie / juego (prioriza fluidez)</option>
+              <option value="detail">Texto / código / navegador (prioriza nitidez)</option>
+            </select>
+          </label>
+          <label class="remember">
+            <input id="audio" type="checkbox" checked>
+            <span>Compartir audio (de la pestaña o del sistema)</span>
+          </label>
+        </fieldset>
+
+        <p id="error" class="notice notice-error" role="alert" hidden></p>
+
+        <div class="actions">
+          <button id="btn-pick" class="btn" type="button">Elegir pantalla</button>
+          <button id="btn-start" class="btn btn-primary" type="submit" disabled>Iniciar transmisión</button>
+          <button id="btn-stop" class="btn btn-danger" type="button" hidden>Detener transmisión</button>
+        </div>
+      </form>
+
+      <section id="share" class="group share" hidden>
+        <span class="share-label">Link para tus amigos</span>
+        <div class="share-row">
+          <input id="share-url" readonly>
+          <button id="btn-copy" class="btn" type="button">Copiar</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <dl class="stats-grid">
+          <dt>codec</dt><dd data-k="codec">—</dd>
+          <dt>bitrate enviado</dt><dd data-k="bitrate">—</dd>
+          <dt>resolución</dt><dd data-k="resolution">—</dd>
+          <dt>fps</dt><dd data-k="fps">—</dd>
+          <dt>limitado por</dt><dd data-k="limit">—</dd>
+          <dt>RTT</dt><dd data-k="rtt">—</dd>
+          <dt>pérdida</dt><dd data-k="loss">—</dd>
+          <dt>audio</dt><dd data-k="audio">—</dd>
+        </dl>
+      </section>
+
+      <p class="hint">
+        Para el audio, compartí una <strong>pestaña</strong> con “Compartir audio de la pestaña”.
+        Si compartís el audio de todo el sistema también se transmite Discord, y tus amigos se escuchan con eco.
+        Dejá esta pestaña abierta mientras transmitís.
+      </p>
+    </aside>
+  </main>
+</body>
+</html>

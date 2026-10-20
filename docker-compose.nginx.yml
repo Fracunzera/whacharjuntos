@@ -1,0 +1,17 @@
+# Override para un VPS donde nginx (en el host) ya ocupa 80/443.
+# Se activa en .env con:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.nginx.yml
+#
+# Apaga Caddy (queda detrás del profile "caddy", que nadie activa) y publica
+# la señalización WHIP/WHEP y el LL-HLS de MediaMTX solo en 127.0.0.1, para
+# que nginx haga de proxy. Ver deploy/nginx-whacharjuntos.conf.
+# UDP 8189 se sigue publicando hacia afuera igual que antes.
+services:
+  mediamtx:
+    ports:
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8889:8889"
+
+  caddy:
+    profiles: [caddy]
