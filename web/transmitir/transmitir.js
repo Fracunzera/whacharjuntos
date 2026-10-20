@@ -44,6 +44,7 @@
     preset: $('preset'),
     bitrate: $('bitrate'),
     content: $('content'),
+    codec: $('codec'),
     audio: $('audio'),
     error: $('error'),
     btnPick: $('btn-pick'),
@@ -137,6 +138,7 @@
       preset: el.preset.value,
       bitrate: el.bitrate.value,
       content: el.content.value,
+      codec: el.codec.value,
       audio: el.audio.checked,
     }));
   }
@@ -148,6 +150,7 @@
       if (PRESETS[s.preset]) el.preset.value = s.preset;
       if (s.bitrate) el.bitrate.value = s.bitrate;
       if (s.content === 'motion' || s.content === 'detail') el.content.value = s.content;
+      if (['auto', 'h264', 'vp9'].includes(s.codec)) el.codec.value = s.codec;
       if (typeof s.audio === 'boolean') el.audio.checked = s.audio;
     }
     const c = readJson(tabStore, STORE_AUTH) || readJson(store, STORE_AUTH);
@@ -286,17 +289,28 @@
   }
 
   // H.264 primero (lo decodifican todos los navegadores y sirve para LL-HLS);
-  // VP9 solo si el navegador no codifica H.264.
+  // VP9 si el navegador no codifica H.264 o si se elige a mano.
+  // Dentro de H.264, High > Main > Baseline: Baseline suele terminar en
+  // OpenH264 (software), que en Chrome descarta cuadros y se ve peor; High y
+  // Main solo los ofrece cuando hay encoder por hardware.
   function videoCodecPreferences() {
     const caps = RTCRtpSender.getCapabilities && RTCRtpSender.getCapabilities('video');
     if (!caps) return null;
-    const packetizationMode = (c) => (/packetization-mode=1/.test(c.sdpFmtpLine || '') ? 1 : 0);
+    const fmtp = (c) => c.sdpFmtpLine || '';
+    const packetizationMode = (c) => (/packetization-mode=1/.test(fmtp(c)) ? 1 : 0);
+    const profileRank = (c) => {
+      const m = fmtp(c).match(/profile-level-id=([0-9a-f]{2})/i);
+      const p = m ? m[1].toLowerCase() : '';
+      return p === '64' ? 2 : p === '4d' ? 1 : 0;
+    };
     const h264 = caps.codecs
       .filter((c) => c.mimeType.toLowerCase() === 'video/h264')
-      .sort((a, b) => packetizationMode(b) - packetizationMode(a));
+      .sort((a, b) => packetizationMode(b) - packetizationMode(a) || profileRank(b) - profileRank(a));
     const vp9 = caps.codecs.filter((c) => c.mimeType.toLowerCase() === 'video/vp9');
     const extras = caps.codecs.filter((c) => /\/(rtx|red|ulpfec|flexfec-03)$/i.test(c.mimeType));
-    const main = h264.length ? h264 : vp9;
+    let main;
+    if (el.codec.value === 'vp9') main = vp9.length ? [...vp9, ...h264] : h264;
+    else main = h264.length ? [...h264, ...vp9] : vp9;
     if (!main.length) return null;
     return [...main, ...extras];
   }
@@ -561,7 +575,10 @@
       sample: { time: now, vBytes, aBytes },
       framesSent: video ? video.framesSent || 0 : 0,
       view: {
-        codec: codec ? codec.mimeType.replace(/^video\//i, '') : '—',
+        codec: codec ? codec.mimeType.replace(/^video\//i, '') + h264Profile(codec) : '—',
+        // Chrome lo expone porque la página tiene permiso de captura.
+        encoder: video && video.encoderImplementation
+          ? video.encoderImplementation + (video.powerEfficientEncoder ? ' (hardware)' : '') : '—',
         bitrate: fmtBitrate(vRate),
         resolution: video && video.frameWidth ? `${video.frameWidth}×${video.frameHeight}` : '—',
         fps: video && video.framesPerSecond != null ? String(Math.round(video.framesPerSecond)) : '—',
@@ -572,6 +589,12 @@
         audio: audio ? fmtBitrate(aRate) : 'sin audio',
       },
     };
+  }
+
+  function h264Profile(codec) {
+    const m = (codec.sdpFmtpLine || '').match(/profile-level-id=([0-9a-f]{2})/i);
+    if (!m) return '';
+    return { '42': ' Baseline', '4d': ' Main', '64': ' High' }[m[1].toLowerCase()] || '';
   }
 
   function fmtBitrate(bps) {
@@ -640,6 +663,8 @@
     el.bitrate.addEventListener('change', applyQuality);
     el.content.addEventListener('change', applyQuality);
     el.audio.addEventListener('change', saveSettings);
+    // El codec se negocia al conectar: aplica en la próxima transmisión.
+    el.codec.addEventListener('change', saveSettings);
     el.room.addEventListener('input', updateUi);
 
     el.btnCopy.addEventListener('click', async () => {
