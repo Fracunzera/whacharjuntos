@@ -1,0 +1,13 @@
+# Fallback RTMP para OBS (opcional). Se activa agregando este archivo a
+# COMPOSE_FILE en .env:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.rtmp.yml
+#
+# RTMP viaja SIN cifrar (incluida la contraseña del publisher). Usalo solo si
+# WHIP te da problemas, y cerrá el 1935 cuando no lo uses.
+services:
+  mediamtx:
+    environment:
+      MTX_RTMP: "yes"
+    ports:
+      - "1935:1935"

@@ -1,0 +1,67 @@
+name: whacharjuntos
+
+services:
+  mediamtx:
+    # Versión pineada. Imagen "standard" (sin ffmpeg): no transcodificamos nada.
+    image: bluenviron/mediamtx:1.21.2
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    # Logins de tus amigos (usuarios de solo lectura), generado por
+    # scripts/amigos.sh. Requiere docker compose >= 2.24.
+    env_file:
+      - path: ./viewers.env
+        required: false
+    environment:
+      # Pisan los placeholders de mediamtx.yml (MediaMTX lee MTX_<CLAVE>).
+      MTX_LOGLEVEL: ${LOG_LEVEL:-info}
+      MTX_AUTHINTERNALUSERS_0_USER: ${PUBLISH_USER:-publisher}
+      MTX_AUTHINTERNALUSERS_0_PASS: ${PUBLISH_PASS:?definí PUBLISH_PASS en .env}
+      # Link compartido ?t= (opcional). Sin VIEWER_TOKEN queda bloqueado con un
+      # hash sin preimagen: NUNCA vacío, porque vacío = cualquier contraseña.
+      MTX_AUTHINTERNALUSERS_1_PASS: ${VIEWER_TOKEN:-sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      MTX_WEBRTCADDITIONALHOSTS: ${PUBLIC_HOST:?definí PUBLIC_HOST en .env}
+      MTX_WEBRTCALLOWORIGINS: https://${DOMAIN:?definí DOMAIN en .env}
+      MTX_HLSALLOWORIGINS: https://${DOMAIN}
+      MTX_WEBRTCTRUSTEDPROXIES: ${EDGE_SUBNET:-172.30.80.0/24}
+      MTX_HLSTRUSTEDPROXIES: ${EDGE_SUBNET:-172.30.80.0/24}
+    ports:
+      # Media WebRTC (ICE/DTLS/SRTP). Tiene que ser el MISMO número de puerto
+      # adentro y afuera: es el que MediaMTX anuncia en los candidatos ICE.
+      # 8888 (HLS) y 8889 (WHIP/WHEP) NO se publican: solo los ve Caddy.
+      - "8189:8189/udp"
+    networks:
+      - edge
+
+  caddy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3 (opcional)
+    environment:
+      DOMAIN: ${DOMAIN:?definí DOMAIN en .env}
+      ACME_EMAIL: ${ACME_EMAIL:?definí ACME_EMAIL en .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv/www:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+
+networks:
+  # Subred fija para poder declararla como proxy confiable en MediaMTX
+  # (webrtcTrustedProxies / hlsTrustedProxies) y que el X-Forwarded-For de
+  # Caddy se respete.
+  edge:
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:-172.30.80.0/24}
+
+volumes:
+  caddy_data:
+  caddy_config:

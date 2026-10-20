@@ -1,0 +1,131 @@
+###############################################################################
+# MediaMTX 1.21.2 — configuración para watch-party (passthrough puro)
+#
+# Las claves están verificadas contra el mediamtx.yml de referencia del tag
+# v1.21.2. Todo lo que no aparece acá toma el valor por defecto de esa versión.
+#
+# Los valores que dependen de tu instalación (dominio, IP pública, contraseñas,
+# subred de Docker) se inyectan desde docker-compose.yml con variables MTX_*,
+# que MediaMTX aplica ENCIMA de este archivo. Los valores de acá abajo son
+# solo placeholders y nunca deberían quedar en uso.
+###############################################################################
+
+###############################################
+# General
+
+logLevel: info                     # MTX_LOGLEVEL
+logDestinations: [stdout]
+
+###############################################
+# Autenticación
+
+authMethod: internal
+
+authInternalUsers:
+  # [0] Publisher: lo usa OBS. SOLO puede publicar.
+  #     user -> MTX_AUTHINTERNALUSERS_0_USER  (PUBLISH_USER)
+  #     pass -> MTX_AUTHINTERNALUSERS_0_PASS  (PUBLISH_PASS)
+  #     El placeholder es un hash sha256 sin preimagen conocida: si por algún
+  #     motivo no llega la variable de entorno, nadie puede publicar.
+  #     (OJO: una pass vacía en MediaMTX significa "cualquier contraseña").
+  - user: publisher
+    pass: "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    ips: []
+    permissions:
+      - action: publish
+        path:
+
+  # [1] Link compartido ?t=<token> (OPCIONAL, apagado por defecto). SOLO lee.
+  #     El usuario es fijo ("viewer", el viewer web lo asume); la contraseña
+  #     es el token. Sin VIEWER_TOKEN queda con este hash: nadie entra así.
+  #     pass -> MTX_AUTHINTERNALUSERS_1_PASS  (VIEWER_TOKEN)
+  - user: viewer
+    pass: "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    ips: []
+    permissions:
+      - action: read
+        path:
+
+  # [2..n] Un login por amigo (usuario + contraseña, SOLO lectura). No van
+  #     acá: los genera scripts/amigos.sh en viewers.env, que docker-compose
+  #     carga como MTX_AUTHINTERNALUSERS_<n>_USER / _PASS / _PERMISSIONS_0_ACTION.
+
+  # No hay usuario "any": la lectura NO es anónima, y la API / metrics / pprof
+  # están apagados, así que tampoco hace falta el admin de localhost.
+
+###############################################
+# Servidores que NO se usan (menos superficie de ataque)
+
+api: false
+metrics: false
+pprof: false
+playback: false
+rtsp: false
+srt: false
+moq: false
+
+# RTMP queda apagado por defecto. Para usarlo como fallback de OBS, activá
+# docker-compose.rtmp.yml (pone MTX_RTMP=yes y publica el 1935).
+rtmp: false
+rtmpAddress: :1935
+
+###############################################
+# HLS (LL-HLS) — salida alternativa, más latencia pero va por TCP/HTTPS
+
+hls: true
+hlsAddress: :8888
+# TLS lo termina Caddy; MediaMTX habla HTTP plano dentro de la red de Docker.
+hlsEncryption: false
+hlsAllowOrigins: ["https://watchando.blucaro.site"]  # MTX_HLSALLOWORIGINS
+hlsTrustedProxies: ["172.30.80.0/24"]            # MTX_HLSTRUSTEDPROXIES
+hlsVariant: lowLatency
+# Mantener el muxer HLS siempre armado mientras hay publisher: cambiar a LL-HLS
+# arranca al instante. Es remux (cambio de contenedor), NO transcodificación.
+hlsAlwaysRemux: true
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+
+###############################################
+# WebRTC (WHIP para publicar desde OBS, WHEP para mirar)
+
+webrtc: true
+# Señalización HTTP (WHIP/WHEP). Solo accesible desde Caddy, no se publica.
+webrtcAddress: :8889
+webrtcEncryption: false
+webrtcAllowOrigins: ["https://watchando.blucaro.site"]  # MTX_WEBRTCALLOWORIGINS
+webrtcTrustedProxies: ["172.30.80.0/24"]          # MTX_WEBRTCTRUSTEDPROXIES
+
+# Media WebRTC: TODO el tráfico de todos los peers multiplexado en UDP 8189.
+# Este puerto se publica 1:1 en docker-compose y TIENE que estar abierto en el
+# firewall del VPS. Si está cerrado: la señalización anda, el player queda
+# "conectando" para siempre y no hay ningún error visible.
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: ""
+
+# Dentro de Docker las interfaces tienen IPs privadas (172.x): no sirven como
+# candidatos ICE. Las apagamos y anunciamos solo la IP pública del VPS.
+webrtcIPsFromInterfaces: false
+webrtcAdditionalHosts: ["203.0.113.10"]          # MTX_WEBRTCADDITIONALHOSTS
+
+# Sin STUN/TURN: el VPS tiene IP pública y es él quien anuncia su candidato.
+webrtcICEServers2: []
+webrtcHandshakeTimeout: 10s
+webrtcTrackGatherTimeout: 2s
+
+###############################################
+# Paths (salas)
+
+pathDefaults:
+  source: publisher
+  # Si OBS se reconecta (corte de red), la nueva sesión reemplaza a la vieja.
+  overridePublisher: true
+  # Límite de sanidad: 3-5 amigos + margen para reconexiones.
+  maxReaders: 10
+  record: false
+
+paths:
+  # Solo se aceptan salas con nombre [A-Za-z0-9_-], 1 a 64 caracteres.
+  # Es el mismo formato que valida el viewer y que matchea Caddy.
+  "~^[A-Za-z0-9_-]{1,64}$": {}

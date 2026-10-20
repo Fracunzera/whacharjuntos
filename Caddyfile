@@ -1,0 +1,54 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		# El token viaja en la URL de la página: que no se filtre por Referer.
+		Referrer-Policy "no-referrer"
+		# El viewer es de solo lectura: el navegador ni siquiera puede pedir
+		# micrófono, cámara ni captura de pantalla desde este origen.
+		Permissions-Policy "camera=(), microphone=(), display-capture=(), geolocation=()"
+		-Server
+	}
+
+	# --- Señalización WebRTC -> MediaMTX :8889 ---------------------------------
+	# POST   /<sala>/whip            (OBS publica)
+	# POST   /<sala>/whep            (el viewer pide el stream)
+	# PATCH  /<sala>/whep/<sesión>   (trickle ICE)
+	# DELETE /<sala>/whip|whep/<sesión>
+	# Solo pasa la señalización HTTP. El media va directo por UDP 8189.
+	@webrtc path_regexp ^/[A-Za-z0-9_-]+/(whip|whep)(/[^/]+)?$
+	handle @webrtc {
+		reverse_proxy mediamtx:8889
+	}
+
+	# --- LL-HLS -> MediaMTX :8888 ----------------------------------------------
+	# /<sala>/index.m3u8, playlists de cada track y segmentos/partes fMP4.
+	@hls path_regexp ^/[A-Za-z0-9_-]+/[^/]+\.(m3u8|mp4|mp|ts)$
+	handle @hls {
+		reverse_proxy mediamtx:8888 {
+			# LL-HLS usa playlists "bloqueantes": no bufferear respuestas.
+			flush_interval -1
+		}
+	}
+
+	# hls.js: lo sirve MediaMTX (viene embebido en el binario, misma versión
+	# que su muxer). Así no hay CDN ni dependencias vendorizadas.
+	handle /_lib/hls.min.js {
+		reverse_proxy mediamtx:8888
+	}
+
+	# --- Viewer estático --------------------------------------------------------
+	handle {
+		root * /srv/www
+		header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		# Revalidar siempre (ETag): si actualizás el viewer, tus amigos lo
+		# reciben sin tener que limpiar caché.
+		header Cache-Control "no-cache"
+		encode zstd gzip
+		file_server
+	}
+}
